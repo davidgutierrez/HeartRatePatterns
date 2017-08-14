@@ -4,6 +4,25 @@ import wfdb # the lib that handles the physionet stuff
 import numpy # the lib that handles the arrays stuff
 from scidbpy import connect #the lib that handles the scidby stuff
 
+def uploadToSDB(sigII,ondaName,sdb):
+  array = numpy.asarray(sigII, dtype=float)
+  arrayNonNan = array[~numpy.isnan(array)]
+  if arrayNonNan.any():
+    print("uploading: "+ondaName)
+    sdb.input(upload_data=array).store(ondaName,gc=False)
+  return;
+
+def downloadWFDB(onda,carpeta,sdb,ondaName):
+  sig, fields = wfdb.srdsamp(onda,pbdir='mimic2wdb/matched/'+carpeta)
+  signalII = None
+  try:
+    signalII = fields['signame'].index("II")
+  except ValueError:
+    print(ondaName+" no contains Signal II")
+  if(signalII!=None):
+    uploadToSDB(sig[:,signalII],ondaName,sdb)
+  return;
+
 target_url = "https://www.physionet.org/physiobank/database/mimic2wdb/matched/RECORDS-waveforms" # url of the waveforms of physionet
 data = urllib.request.urlopen(target_url) # it's a file like object and works just like a file
 
@@ -14,15 +33,4 @@ for line in data: # files are iterable
     ondaName = onda.replace("-", "_")
     print(ondaName)
     if ondaName not in sdbarrays:
-        sig, fields = wfdb.srdsamp(onda,pbdir='mimic2wdb/matched/'+carpeta) #, sampfrom=11000#sig, fields = wfdb.srdsamp('s00001-2896-10-10-00-31',pbdir='mimic2wdb/matched/s00001', sampfrom=11000)
-        signalII = None
-        try:
-                signalII = fields['signame'].index("II")
-        except ValueError:
-    	        print("List does not contain value")
-        if(signalII!=None):
-                array = numpy.asarray(sig[:,signalII], dtype=float)
-                arrayNonNan = array[~numpy.isnan(array)]
-                if arrayNonNan.any():
-            	        print("non empty "+ondaName)
-            	        sdb.input(upload_data=array).store(ondaName,gc=False)
+      downloadWFDB(onda,carpeta,sdb,ondaName)
