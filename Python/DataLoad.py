@@ -3,19 +3,21 @@ import urllib.request  # the lib that handles the url stuff
 import wfdb # the lib that handles the physionet stuff
 import numpy # the lib that handles the arrays stuff
 from scidbpy import connect #the lib that handles the scidby stuff
+from sklearn.preprocessing import normalize
 
 def uploadToSDB(sigII,ondaName,sdb):
   array = numpy.asarray(sigII, dtype=float)
   arrayNonNan = array[~numpy.isnan(array)]
   if arrayNonNan.any():
     print("uploading: "+ondaName)
+    array = normalize(arrayNonNan[:,numpy.newaxis], axis=0).ravel()
     sdb.input(upload_data=array).store(ondaName,gc=False)
   return;
 
 def downloadWFDB(onda,carpeta,sdb,ondaName):
-  sig, fields = wfdb.srdsamp(onda,pbdir='mimic2wdb/matched/'+carpeta, channels = [1,3])
   signalII = None
   try:
+    sig, fields = wfdb.srdsamp(onda,pbdir='mimic2wdb/matched/'+carpeta)
     signalII = fields['signame'].index("II")
   except ValueError:
     print(ondaName+" no contains Signal II")
