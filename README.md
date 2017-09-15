@@ -1,4 +1,6 @@
 # HeartRatePatterns
-Este trabajo se enfoca en realizar análisis predictivo de la mortalidad, a través de la identificación de patrones en los latidos de corazón en pacientes que se encuentran en la unidad de cuidados intensivos (ICU por sus siglas en inglés). Como fuente de datos se utiliza MIMIC II, donde se encuentra la información de pacientes en la ICU, estos datos se transforman en grafos, posteriormente se localizan los patrones posibles de latidos entre todos los pacientes, por medio de la minería de grafos frecuentes, se reducen estos patrones usando Factorización de Matrices No Negativas (NMF) y se agrupan los pacientes por sus características. Al final, usando regresión logística se identifica la probabilidad que tienen cada uno de estos grupos de pacientes de morir. 
+This work focuses on predictive mortality analysis, through the identification of patterns in heart beats of patients in the intensive care unit (ICU).
+
+As a data source, MIMIC III is used, where the patient information is found in the ICU, these data are transformed into graphs, later the possible patterns of beats are located between all the patients, through the frequent graph mining, reduce these patterns using Non-Negative Matrix Factorization (MFN) and group the patients by their characteristics. In the end, using logistic regression identifies the probability that each of these groups of patients have to die. 
 
 For more info see the [Wiki](https://github.com/davidgutierrez/HeartRatePatterns/wiki)
