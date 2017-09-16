@@ -66,6 +66,7 @@ class QRSDetectorOffline(object):
         :param bool log_data: flag for logging the results
         :param bool plot_data: flag for plotting the results to a file
         :param bool show_plot: flag for showing generated results plot - will not show anything if plot is not generated
+        :param int signal_frequency: flag to indicate the frameRate of the ECG
         """
         # Configuration parameters.
         self.ecg_data_path = ecg_data_path
@@ -309,4 +310,4 @@ class QRSDetectorOffline(object):
 
 if __name__ == "__main__":
     qrs_detector = QRSDetectorOffline(ecg_data_path="ecg_data/ecg_data_1.csv", verbose=True,
-                                      log_data=True, plot_data=True, show_plot=False)
+                                      log_data=True, plot_data=True, show_plot=False,signal_frequency=250)
