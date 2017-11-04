@@ -14,7 +14,11 @@ def obtainWaveFormFields(dbname="mimic") :
     labels='II'
     conn = psycopg2.connect("dbname="+dbname)
     cur = conn.cursor()
-    select_stament = "SELECT lef.subject_id,lef.recorddate,lef.signame,lef.fs FROM waveformfields lef  LEFT JOIN (SELECT MAX(recorddate) AS recorddate,subject_id FROM waveformFields GROUP BY subject_id) rig ON lef.subject_id = rig.subject_id AND lef.recorddate = rig.recorddate WHERE rig.subject_id IS NOT NULL AND signame @> ARRAY['"+labels+"']::varchar[] AND signallength is null"
+    select_stament = ("SELECT lef.subject_id,lef.recorddate,lef.signame,lef.fs "
+            " FROM waveformfields lef "
+            " LEFT JOIN (SELECT MAX(recorddate) AS recorddate,subject_id "
+            " FROM waveformFields GROUP BY subject_id) rig ON lef.subject_id = rig.subject_id AND lef.recorddate = rig.recorddate "
+            " WHERE rig.subject_id IS NOT NULL AND signame @> ARRAY['"+labels+"']::varchar[] AND signallength is null")
     cur.execute(select_stament)
     waves = []
     for row in cur :
@@ -46,7 +50,6 @@ def peakdetect(signal, fs,increment=0,previousResult=None):
     if previousResult is None:
         previousResult = {'Q_i':[],'Q_amp':[],'R_i':[],'R_amp':[],'S_i':[],'S_amp':[],'T_i':[],'T_amp':[]}
     (R_i,R_amp,S_i,S_amp,T_i,T_amp,Q_i,Q_amp,heart_rate,buffer_plot) = octave.peakdetect(signal,fs,False, nout=10)
-#    %octave [R_i,R_amp,S_i,S_amp,T_i,T_amp,Q_i,Q_amp,heart_rate,buffer_plot] = peakdetect(signal,fs,false); -i signal,fs -o R_i,R_amp,S_i,S_amp,T_i,T_amp,Q_i,Q_amp,heart_rate,buffer_plot
     return {'Q_i'  :np.concatenate((previousResult['Q_i'],  Q_i[0]+increment)),
             'Q_amp':np.concatenate((previousResult['Q_amp'],Q_amp[0])),
             'R_i'  :np.concatenate((previousResult['R_i'],  R_i[0]+increment)),
