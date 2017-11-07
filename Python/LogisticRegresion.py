@@ -35,10 +35,8 @@ def MyLogisticRegressionCV(solver,model_train,objetive_train,model_test,objetive
     best_avg=0
     exploreC=[0.0001,0.001,0.01,0.1,1,10]
     for i in range(0,5):
-        logitmodel=LogisticRegressionCV(exploreC, fit_intercept=True, cv=5,  penalty='l2', 
-                                                dual=True,  solver=solver,  n_jobs=-1, verbose=0, 
-                                                refit=True, random_state=0,  scoring='roc_auc'#'f1'#,max_iter=102400
-						)
+        logitmodel=LogisticRegressionCV(exploreC, fit_intercept=True, cv=5,  penalty='l2', dual=True,  solver=solver,  n_jobs=-1,
+					verbose=0,refit=True, random_state=0,  scoring='roc_auc')
         logitmodel.fit(model_train,objetive_train)
         predictions= logitmodel.predict(model_test)
         scores=logitmodel.scores_[1]
@@ -47,10 +45,9 @@ def MyLogisticRegressionCV(solver,model_train,objetive_train,model_test,objetive
 #        print("CV averages for values "+str(exploreC)+" are:"+str(np.average(scores,0)))
 #        print("Best C is "+str(best_val)+" with an average of "+str(best_average))
         if best_avg<best_average :
-          bestC = best_val[0]
-          best_avg=best_average
+            bestC = best_val[0]
+            best_avg=best_average
         exploreC=find_new_explore_c(exploreC, best_val)
-    #return a logisticRegression vased in the best_val and the parameter used
     acscore = accuracy_score(objetive_test,logitmodel.predict(model_test))
     return logitmodel,acscore,best_val[0],bestC
 
