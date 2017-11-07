@@ -17,8 +17,7 @@ CREATE TABLE waveformqrst (
   CONSTRAINT "uniqueQRST" UNIQUE (subject_id, recorddate, qrtsorder)
 );
 
-CREATE TABLE subjectword
-(
+CREATE TABLE subjectword (
   id serial NOT NULL,
   subject_id integer,
   word character varying(40000),
