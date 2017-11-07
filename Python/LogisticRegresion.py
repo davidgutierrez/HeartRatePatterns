@@ -25,15 +25,15 @@ def find_new_explore_c(paramArray, best_val):
             paramArray = np.linspace(paramArray[index_val - 1]+distance_prev/2, max_val, len(paramArray)).tolist()
     return paramArray
 
-def logisticRegression(C,solver,model_train,objetive_train,objetive_test,model_test):
-    model = LogisticRegression(C=best_val[0],fit_intercept=True, penalty='l2',dual=True,solver=solver,verbose=0,random_state=0)
+def MyLogisticRegression(C,solver,model_train,objetive_train,model_test,objetive_test):
+    model = LogisticRegression(C=C,fit_intercept=True, penalty='l2',dual=True,solver=solver,verbose=0,random_state=0)
     model.fit(model_train,objetive_train)
     acscoreb = accuracy_score(objetive_test,model.predict(model_test))
     return model,acscoreb
 
-def ajustLogisticRegression(model_train,objetive_train,model_test,objetive_test,exploreC=[0.0001,0.001,0.01,0.1,1,10]) :
+def MyLogisticRegressionCV(solver,model_train,objetive_train,model_test,objetive_test):
     best_avg=0
-    solver='liblinear'
+    exploreC=[0.0001,0.001,0.01,0.1,1,10]
     for i in range(0,5):
         logitmodel=LogisticRegressionCV(exploreC, fit_intercept=True, cv=5,  penalty='l2', 
                                                 dual=True,  solver=solver,  n_jobs=-1, verbose=0, 
@@ -52,12 +52,17 @@ def ajustLogisticRegression(model_train,objetive_train,model_test,objetive_test,
         exploreC=find_new_explore_c(exploreC, best_val)
     #return a logisticRegression vased in the best_val and the parameter used
     acscore = accuracy_score(objetive_test,logitmodel.predict(model_test))
+    return logitmodel,acscore,best_val[0],bestC
+
+def ajustLogisticRegression(model_train,objetive_train,model_test,objetive_test) :
+    solver='liblinear'
+    logitmodel,acscore,best_val,bestC = MyLogisticRegressionCV(solver,model_train,objetive_train,model_test,objetive_test)
 #    print("Score logit "+str(acscore))
-    model,acscoreb = logisticRegression(best_val[0],solver,model_train,objetive_train,objetive_test,model_test)
+    model,acscoreb = MyLogisticRegression(best_val,solver,model_train,objetive_train,model_test,objetive_test)
 #    print("Score last "+str(acscoreb))
     acscore = acscoreb if acscoreb>acscore else acscore
     model = model if acscoreb>acscore else logitmodel
-    modelC,acscorec = logisticRegression(bestC,solver,model_train,objetive_train,objetive_test,model_test)
+    modelC,acscorec = MyLogisticRegression(bestC,solver,model_train,objetive_train,model_test,objetive_test)
 #    print("Score best "+str(acscorec))
     acscore = acscore if acscore>acscorec else acscorec
     model = modelC if acscorec>acscoreb else model
