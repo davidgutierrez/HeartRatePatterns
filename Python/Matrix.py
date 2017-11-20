@@ -9,19 +9,23 @@ import pandas as pd
 import numpy as np
 
 
-def select_matrix(with_pearson, dbname="mimic"):
+def __select_matrix(with_pearson, filter_words=None, dbname="mimic"):
     """Selects the current state of the matrix.
     """
     conn = psycopg2.connect("dbname="+dbname)
     cur = conn.cursor()
     select_stament = '''SELECT m.subject_id,m.word,m.counting,s.isalive
-    FROM matrix m LEFT JOIN subjectwords s ON m.subject_id=s.subject_id'''
-    # WHERE m.word in (select word FROM wordspearson WHERE
-    # p1>0.01 order by p1 desc limit 400) "
+    FROM matrix m LEFT JOIN subjectwords s ON m.subject_id=s.subject_id '''
     if with_pearson:
-        select_stament = select_stament+''' WHERE m.word in (SELECT word FROM
-        wordspearson order by p1 desc limit 400)'''
-    cur.execute(select_stament)
+        select_stament = select_stament+''' INNER JOIN 
+        (SELECT word,p1 FROM wordspearson ORDER BY p1 DESC LIMIT 400) w 
+        ON m.word=w.word '''
+    if filter_words!=None:
+        select_stament = select_stament+''' WHERE m.word in %s '''
+    if filter_words!=None:
+        cur.execute(select_stament,(filter_words,))
+    else:
+        cur.execute(select_stament)
     select = []
     for row in cur:
         select.append((row))
@@ -29,17 +33,20 @@ def select_matrix(with_pearson, dbname="mimic"):
     conn.close()
     return select
 
-def convert_matrix(with_pearson=False, sumvals=True):
+def convert_matrix(with_pearson=False, sumvals=True,filter_words=None):
     """Selects the current state of the matrix.
-    """
+    Keyword arguments:
+    wave -- the original wave
+    word -- the word that represents the wave
+     """
     labels = ['subject_id', 'Word', 'Counting', 'isAlive']
-    dataframe = pd.DataFrame.from_records(select_matrix(with_pearson),
+    dataframe = pd.DataFrame.from_records(__select_matrix(with_pearson,filter_words),
                                           columns=labels)
-    print(len(dataframe))
     table = pd.pivot_table(dataframe, index=["subject_id", "isAlive"],
                            columns=["Word"], values=["Counting"],
                            aggfunc={"Counting":
                                [np.sum if sumvals else np.count_nonzero]},
                            fill_value=0)
     table.columns = [value[2] for value in table.columns.values]
+    print(table.shape)
     return table
