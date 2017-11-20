@@ -1,0 +1,200 @@
+import sys
+import psycopg2
+from psycopg2.extensions import register_adapter, AsIs
+import wfdb
+import numpy as np
+import matplotlib.pyplot as plt
+from oct2py import octave
+from datetime import datetime
+import pandas as pd
+octave.addpath('/home/scidb/HeartRatePatterns/Matlab/')
+octave.eval('pkg load signal')
+
+def obtainWaveFormFields(dbname="mimic") :
+    labels='II'
+    conn = psycopg2.connect("dbname="+dbname)
+    cur = conn.cursor()
+    select_stament = "SELECT lef.subject_id,lef.recorddate,lef.signame,lef.fs FROM waveformfields lef  LEFT JOIN (SELECT MAX(recorddate) AS recorddate,subject_id FROM waveformFields GROUP BY subject_id) rig ON lef.subject_id = rig.subject_id AND lef.recorddate = rig.recorddate WHERE rig.subject_id IS NOT NULL AND signame @> ARRAY['"+labels+"']::varchar[] AND signallength is null"
+    cur.execute(select_stament)
+    waves = []
+    for row in cur :
+        patient = "p"+str(row[0]).zfill(6)
+        onda = patient+'-'+row[1]
+        carpeta = patient[:3]+"/"+patient
+        waves.append({"subject_id":row[0],"recorddate":row[1],"fs":row[3],"onda":onda,"carpeta":carpeta,
+                      "signalII":row[2].index("II")})
+    conn.close()
+    return waves
+
+def subSignal(signal) :
+    signalNan = signal[~np.isnan(signal)]
+    signalSize = 1800000
+    if len(signalNan)<signalSize :
+        subsignal = signalNan
+    else :
+        subsignal = signalNan[-1800000:]
+    return subsignal.tolist()
+
+def updateSignal(subject_id,recorddate,signallen,dbname="mimic") :
+    conn = psycopg2.connect("dbname="+dbname)
+    cur = conn.cursor()
+    update_stament = "UPDATE waveformfields SET signallength=(%s) WHERE subject_id = (%s) AND recorddate = (%s)"
+    cur.execute(update_stament,(signallen,subject_id,recorddate))
+    conn.commit()
+
+def peakdetect(signal, fs,increment=0,previousResult=None):
+    if previousResult is None:
+        previousResult = {'Q_i':[],'Q_amp':[],'R_i':[],'R_amp':[],'S_i':[],'S_amp':[],'T_i':[],'T_amp':[]}
+    (R_i,R_amp,S_i,S_amp,T_i,T_amp,Q_i,Q_amp,heart_rate,buffer_plot) = octave.peakdetect(signal,fs,False, nout=10)
+#    %octave [R_i,R_amp,S_i,S_amp,T_i,T_amp,Q_i,Q_amp,heart_rate,buffer_plot] = peakdetect(signal,fs,false); -i signal,fs -o R_i,R_amp,S_i,S_amp,T_i,T_amp,Q_i,Q_amp,heart_rate,buffer_plot
+    return {'Q_i'  :np.concatenate((previousResult['Q_i'],  Q_i[0]+increment)),
+            'Q_amp':np.concatenate((previousResult['Q_amp'],Q_amp[0])),
+            'R_i'  :np.concatenate((previousResult['R_i'],  R_i[0]+increment)),
+            'R_amp':np.concatenate((previousResult['R_amp'],R_amp[0])),
+            'S_i'  :np.concatenate((previousResult['S_i'],  S_i[0]+increment)),
+            'S_amp':np.concatenate((previousResult['S_amp'],S_amp[0])),
+            'T_i'  :np.concatenate((previousResult['T_i'],  T_i[0]+increment)),
+            'T_amp':np.concatenate((previousResult['T_amp'],T_amp[0])),
+           }
+
+def audit(before=datetime.now()):
+    now = datetime.now()
+    print("hasta aqui van",(now-before))
+    return now
+
+def checkwave(signal,fs):
+    now = audit()
+    windowsize = 10000*fs
+    signalsize = len(signal)
+    previousResult = {'Q_i':[],'Q_amp':[],'R_i':[],'R_amp':[],'S_i':[],'S_amp':[],'T_i':[],'T_amp':[]}
+    termino = True
+    fin=0
+    while termino:
+        ini=fin
+        fin=fin+ (windowsize)
+        if(fin>signalsize):
+            fin=signalsize
+        print("ini",ini,"fin",fin)
+        previousResult = peakdetect(signal[ini:fin],fs,increment=ini,previousResult=previousResult)
+        now = audit(now)
+        termino = fin<signalsize
+    return previousResult
+
+def readsignal(next1,next2,next3,wave,amp,i,signal) :
+    currentw = int(signal[wave][i]) if len(signal[wave])>i else None
+    if currentw is None or (next2 is not None and currentw>next2) or (next3 is not None and currentw>next3):
+        return None,None,i
+    if(next1 is None or currentw<=next1) :
+        currentw,waveamp,i = currentw,signal[amp][i],i+1
+    else :
+        currentw,waveamp = None,None
+    return currentw,waveamp,i
+
+def sortHeartBeats(signal) :
+    q,s,t,r,result = 0,0,0,0,None
+    index = 0
+    while q<len(signal['Q_i']) and r<len(signal['R_i']) and s<len(signal['S_i'])  and t<len(signal['T_i']) :
+        rinext = signal['R_i'][r]   if r  <len(signal['R_i']) else None
+        sinext = signal['S_i'][s]   if s  <len(signal['S_i']) else None
+        tinext = signal['T_i'][t]   if t  <len(signal['T_i']) else None
+        qinext = signal['Q_i'][q+1] if q+1<len(signal['Q_i']) else None
+        riNext = signal['R_i'][q+1] if q+1<len(signal['R_i']) else None
+        siNext = signal['S_i'][q+1] if q+1<len(signal['S_i']) else None
+        
+        qi,qamp,q = readsignal(rinext,sinext,tinext,'Q_i','Q_amp',q,signal)
+        ri,ramp,r = readsignal(sinext,tinext,qinext,'R_i','R_amp',r,signal)
+        si,samp,s = readsignal(tinext,qinext,riNext,'S_i','S_amp',s,signal)
+        ti,tamp,t = readsignal(qinext,riNext,siNext,'T_i','T_amp',t,signal)
+  #      print("q",q,"r",r,"s",s,"t",t)
+        dic = {'Q_i':qi,'Q_amp':qamp,
+               'R_i':ri,'R_amp':ramp,
+               'S_i':si,'S_amp':samp,
+               'T_i':ti,'T_amp':tamp}
+        if result is None :
+            result = pd.DataFrame(dic, index=[index])
+        else :
+            result = pd.concat([result,  pd.DataFrame(dic, index=[index])])
+        index=index+1
+    return result
+
+def checkQRST(qrst) :
+    shape = qrst.shape[0]
+    x = 0
+    while x<shape :
+        qiNotNone = qrst.iloc[x]["Q_i"] is not None
+        riNotNone = qrst.iloc[x]["R_i"] is not None
+        siNotNone = qrst.iloc[x]["S_i"] is not None
+        tiNotNone = qrst.iloc[x]["T_i"] is not None
+        if(qiNotNone and riNotNone and qrst.iloc[x]["Q_i"]>qrst.iloc[x]["R_i"]) :
+            print("Q>R en",x)
+        if(riNotNone and siNotNone and qrst.iloc[x]["R_i"]>qrst.iloc[x]["S_i"]) :
+            print("R>S en",x)
+        if(siNotNone and tiNotNone and qrst.iloc[x]["S_i"]>qrst.iloc[x]["T_i"]) :
+            print("S>T en",x)
+        if(qiNotNone and tiNotNone and qrst.iloc[x]["Q_i"]>qrst.iloc[x]["T_i"]) :
+            print("Q>T en",x)
+        x=x+1
+
+def addapt_numpy_float64(numpy_float64):
+  return AsIs(numpy_float64)
+register_adapter(np.float64, addapt_numpy_float64)
+def addapt_numpy_int64(numpy_int64):
+  return AsIs(numpy_int64)
+register_adapter(np.int64, addapt_numpy_int64)
+
+def saveQRST(qrst,table="waveformQRST") :
+    conn = psycopg2.connect("dbname=mimic")
+    cur = conn.cursor()
+    cur.execute("CREATE TABLE IF NOT EXISTS "+table+
+            " (id serial PRIMARY KEY,"+
+            "Q_amp real,"+
+            "Q_i integer,"+
+            "R_amp real,"+
+            "R_i integer,"+
+            "S_amp real,"+
+            "S_i integer,"+
+            "T_amp real,"+
+            "T_i integer,"+
+            "subject_id integer,recorddate character varying(255),QRTSOrder integer,"+
+            'CONSTRAINT "uniqueQRST" UNIQUE (subject_id, recorddate, qrtsorder));')
+    insert_statement = 'insert into '+table+' (%s) values %s'
+    for index, row in qrst.iterrows():
+        columns = row.keys()
+        values = [row[column] for column in columns]
+#        print(cur.mogrify(insert_statement, (AsIs(','.join(columns)), tuple(values))))
+        cur.execute(insert_statement, (AsIs(','.join(columns)), tuple(values)))
+    conn.commit()
+    conn.close()
+
+def notExistQRST(subject_id,recordDate,table="waveformQRST"):
+    conn = psycopg2.connect("dbname=mimic")
+    cur = conn.cursor()
+    select_stament = 'select id from '+table+' where subject_id= %s and recorddate = %s'
+    cur.execute(select_stament,(int(subject_id),recordDate))
+    exist = cur.fetchone() is None
+    conn.close()
+    return exist
+    
+waves = obtainWaveFormFields()
+for wave in waves:
+    carpeta = wave["carpeta"]
+    onda = wave["onda"]
+    signalII = wave["signalII"]
+    fs = wave["fs"]
+    subject_id = wave["subject_id"]
+    recorddate = wave["recorddate"]
+    if notExistQRST(subject_id,recorddate) :
+        try :
+            print("subject_id",subject_id,"recorddate",recorddate)
+            signal = wfdb.rdsamp(onda,pbdir='mimic3wdb/matched/'+carpeta,channels =[signalII]).p_signals
+            updateSignal(subject_id,recorddate,len(signal))
+            subsignal = subSignal(signal)
+            if len(subsignal)>0 :
+                previousResult = checkwave(subsignal,fs)
+                sortBeats = sortHeartBeats(previousResult)
+                checkQRST(sortBeats)
+                sortBeats = sortBeats.assign(subject_id=int(subject_id)).assign(recorddate=recorddate)
+                sortBeats['QRTSOrder'] = sortBeats.index
+                saveQRST(sortBeats)
+        except :
+            print("error al leer la onda",subject_id," con recorddate",recorddate, sys.exc_info())
