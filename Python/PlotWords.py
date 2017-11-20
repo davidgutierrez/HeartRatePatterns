@@ -98,27 +98,35 @@ def find_word(word, dbname="mimic"):
     """finds the begin, the end a record that represents the word .
     word -- the word that we are searching
     """
+    lenword=len(word)
+#    print(lenword)
     conn = psycopg2.connect("dbname="+dbname)
     cur = conn.cursor()
-    select_statement = '''SELECT v1.r_s,v5.q_s,v1.record,a.rec_from
+    select_statement = ("SELECT v1.r_s,v"+str(lenword)+
+    '''.q_s,v1.record,a.rec_from
     FROM rstq v1
-    LEFT JOIN a on a.record=v1.record
-    LEFT JOIN rstq v2 on v1.record=v2.record
-    LEFT JOIN rstq v3 on v1.record=v3.record
-    LEFT JOIN rstq v4 on v1.record=v4.record
-    LEFT JOIN rstq v5 on v1.record=v5.record
-    WHERE a.rec_from IS NOT NULL and v1.centroid =%s
-    AND v2.centroid =%s AND v1.id+1=v2.id
-    AND v3.centroid=%s AND v2.id+1=v3.id
-    AND v4.centroid=%s AND v3.id+1=v4.id
-    AND v5.centroid=%s AND v4.id+1=v5.id
-    AND v1.r_s<v5.q_s 
-    AND a.record NOT IN ('mimic2wdb/matched/s02858/s02858-3372-09-29-15-32',
-    'mimic2wdb/matched/s04136/s04136-3488-11-06-23-18')
-    LIMIT 1
-'''
-    cur.execute(select_statement,
-                (word[0], word[1], word[2], word[3], word[4], ))
+    INNER JOIN a on a.record=v1.record''' +
+    (" LEFT JOIN rstq v2 on v1.record=v2.record " if lenword>=2 else '')+
+    (" LEFT JOIN rstq v3 on v1.record=v3.record " if lenword>=3 else '')+
+    (" LEFT JOIN rstq v4 on v1.record=v4.record " if lenword>=4 else '')+
+    (" LEFT JOIN rstq v5 on v1.record=v5.record " if lenword>=5 else '')+
+    ''' WHERE v1.centroid =%s ''' +
+    (" AND v2.centroid=%s AND v1.id+1=v2.id " if lenword>=2 else '')+
+    (" AND v3.centroid=%s AND v2.id+1=v3.id " if lenword>=3 else '')+
+    (" AND v4.centroid=%s AND v3.id+1=v4.id " if lenword>=4 else '')+
+    (" AND v5.centroid=%s AND v4.id+1=v5.id " if lenword>=5 else '')+
+    '''AND v1.r_s<v'''+str(lenword)+'''.q_s
+    AND a.record NOT IN ('mimic2wdb/matched/s20354/s20354-2526-08-25-00-53',
+    'mimic2wdb/matched/s14584/s14584-2721-07-20-18-49')
+    LIMIT 1''')
+    wordo = (word[0],)
+    if lenword > 1: wordo += (word[1],)
+    if lenword > 2: wordo += (word[2],)
+    if lenword > 3: wordo += (word[3],)
+    if lenword > 4: wordo += (word[4],)
+#    print(wordo)
+#    print(cur.mogrify(select_statement,wordo))
+    cur.execute(select_statement,wordo)
     select = []
     for row in cur:
         from_val = row[3]+row[0]
