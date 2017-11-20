@@ -20,7 +20,7 @@ def find_new_explore_c(paramArray, best_val):
         min_val = 0.0001 if best_val - new_range <= 0 else float(best_val - new_range)
         max_val = float(best_val + new_range)
         if index_val==0:
-            paramArray = np.linspace(min_val, paramArray[index_val + 1]-distance_next/2, len(paramArray)).tolist()            
+            paramArray = np.linspace(min_val, paramArray[index_val + 1]-distance_next/2, len(paramArray)).tolist()
         else:
             paramArray = np.linspace(paramArray[index_val - 1]+distance_prev/2, max_val, len(paramArray)).tolist()
     return paramArray
@@ -36,7 +36,7 @@ def MyLogisticRegressionCV(solver,model_train,objetive_train,model_test,objetive
     exploreC=[0.0001,0.001,0.01,0.1,1,10]
     for i in range(0,5):
         logitmodel=LogisticRegressionCV(exploreC, fit_intercept=True, cv=5,  penalty='l2', dual=True,  solver=solver,  n_jobs=-1,
-					verbose=0,refit=True, random_state=0,  scoring='roc_auc')
+                    verbose=0,refit=True, random_state=0,  scoring='roc_auc')
         logitmodel.fit(model_train,objetive_train)
         predictions= logitmodel.predict(model_test)
         scores=logitmodel.scores_[1]
@@ -63,5 +63,5 @@ def ajustLogisticRegression(model_train,objetive_train,model_test,objetive_test)
 #    print("Score best "+str(acscorec))
     acscore = acscore if acscore>acscorec else acscorec
     model = modelC if acscorec>acscoreb else model
-    print("acurracy is %2.2f" % acscore)
-    return model
+    print("acurracy is {0:.2%}".format(acscore))
+    return model,acscore
