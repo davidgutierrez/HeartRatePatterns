@@ -6,24 +6,14 @@ Utils for calculating the NMF
 """
 from sklearn.decomposition import NMF
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_auc_score
+
+
+import matplotlib.pyplot as plt
 
 import sys
 import os
 sys.path.append(os.path.abspath("/home/scidb/HeartRatePatterns/Python"))
 from LogisticRegresion import ajustLogisticRegression
-
-def auc_model(name, model, patients, survived):
-    """Calculates the roc_auc of a logistic regression
-    Keyword arguments:
-    name -- name of the Model
-    model -- logistic regression trained
-    patients -- matrix with the heartbeats of the patients
-    survived -- list that indicates thet the row of patient survived
-    """
-    logit_roc_auc = roc_auc_score(survived, model.predict(patients))
-    print(name+" AUC = %2.3f2f"% logit_roc_auc)
-    return logit_roc_auc
 
 def generateNMF(patients, survived, n_components=30):
     """Generates a NMF and gives a Logistic Regression trained,
@@ -34,16 +24,15 @@ def generateNMF(patients, survived, n_components=30):
     survived -- list that indicates thet the row of patient survived
     n_components -- number of components of the table
     """
-    nmf = NMF(n_components=n_components, random_state=1, alpha=.1, l1_ratio=.5)
+    nmf = NMF(n_components=n_components, random_state=1, alpha=.1, l1_ratio=0)
     patients_nmf = nmf.fit_transform(patients)
     m_train, m_test, l_train, l_test = train_test_split(patients_nmf,
                                                         survived,
                                                         test_size=0.2,
                                                         random_state=42)
-    model, acurracy = ajustLogisticRegression(m_train, l_train, m_test, l_test)
-    name = "NMF "+str(n_components)
-    nmf_roc_auc = auc_model(name, model, m_test, l_test)
-    return model, nmf, patients_nmf, nmf_roc_auc, acurracy
+    model, acurracy, roc_auc = ajustLogisticRegression(m_train,
+                                                      l_train, m_test, l_test)
+    return model, nmf, patients_nmf, acurracy, roc_auc
 
 #from operator import itemgetter
 from scipy.stats.stats import pearsonr
@@ -59,16 +48,55 @@ def find_pearson(value, patient, survived):
 #    sortedList = sorted(pearsonList, key=itemgetter('p1'), reverse=True)
     return p1
 
+def plotPearson(pearson):
+    leng = range(1, len(pearson)+1)
+    maxperson = max(pearson)
+    indxperson = pearson.index(maxperson)
+    plt.subplot(111)
+    plt.plot(leng, pearson, lw=2)
+    plt.annotate('maximo ('+str(maxperson)+","+str(indxperson+2)+")",
+                 xy=(indxperson, maxperson),
+                 xytext=(indxperson+20, maxperson+0.02),
+                 arrowprops=dict(facecolor='black', shrink=0.05))
+    plt.xlim([1, 100])
+#    plt.ylim(0.02, 0.20)
+    plt.title('''Punto máximo de Pearson en cada iteración de K
+    en la matriz pacientes por conjunto de latidos''')
+    plt.xlabel('Valor de k en NMF')
+    plt.ylabel('Máximo valor de Pearson')
+    plt.show()
+
+def plotError(title, pearson):
+    leng = range(2, len(pearson)+2)
+    plt.subplot(111)
+    plt.plot(leng, pearson, lw=2)
+    plt.xlim([1, 100])
+    plt.title(title)
+#    plt.ylim(0.02, 0.20)
+    plt.xlabel('Valor de k en NMF')
+    plt.ylabel('Máximo valor de Pearson')
+    plt.show()
+
 def find_best_NMF(patients, survived):
-    p1 = 0
+    result = []
+    oldErr = None
     for value in range(2, 100):
-        modelNew, nmfNew, patientNew, newrc, acc = generateNMF(patients,
+        _, nmf, patient, acc, roc_auc = generateNMF(patients,
                                                             survived,
                                                             n_components=value)
-        maxp1 = find_pearson(value, patientNew, survived)
-        print("pearson", maxp1)
-        if maxp1 > p1:
-            model, nmf, patient = modelNew, nmfNew, patientNew
-            roc_auc, accuracy = newrc, acc
-            p1, score = maxp1, value
-    return model, nmf, patient, roc_auc, accuracy, p1, score
+        errNew = nmf.reconstruction_err_
+        diffErr = None if oldErr is None else oldErr-errNew
+        oldErr = errNew
+        diction = {'n_components':value,
+        'pearson':find_pearson(value, patient, survived),
+                       'recostrucción error': errNew,
+                       'accuracy':acc, 'roc_auc':roc_auc,
+                       'diffErr':diffErr}
+        print(diction)
+        result.append(diction)
+    plotPearson([d['pearson'] for d in result])
+    plotError('recostrucción error',
+              [d['recostrucción error'] for d in result])
+    plotError('diferencia del Error', [d['diffErr'] for d in result])
+    plotError('Presición', [d['accuracy'] for d in result])
+    plotError('Area bajo la curva', [d['roc_auc'] for d in result])

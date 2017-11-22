@@ -48,8 +48,10 @@ def MyLogisticRegressionCV(solver,model_train,objetive_train,model_test,objetive
             bestC = best_val[0]
             best_avg=best_average
         exploreC=find_new_explore_c(exploreC, best_val)
-    acscore = accuracy_score(objetive_test,logitmodel.predict(model_test))
+    acscore = accuracy_score(objetive_test,predictions)
     return logitmodel,acscore,best_val[0],bestC
+
+from sklearn.metrics import roc_auc_score
 
 def ajustLogisticRegression(model_train,objetive_train,model_test,objetive_test) :
     solver='liblinear'
@@ -63,5 +65,6 @@ def ajustLogisticRegression(model_train,objetive_train,model_test,objetive_test)
 #    print("Score best "+str(acscorec))
     acscore = acscore if acscore>acscorec else acscorec
     model = modelC if acscorec>acscoreb else model
-    print("acurracy is {0:.2%}".format(acscore))
-    return model,acscore
+    roc_auc = roc_auc_score(objetive_test, model.predict(model_test))
+    print("acurracy is {0:.4%}".format(acscore))
+    return model,acscore,roc_auc

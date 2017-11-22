@@ -117,7 +117,8 @@ def find_word(word, dbname="mimic"):
     (" AND v5.centroid=%s AND v4.id+1=v5.id " if lenword>=5 else '')+
     '''AND v1.r_s<v'''+str(lenword)+'''.q_s
     AND a.record NOT IN ('mimic2wdb/matched/s20354/s20354-2526-08-25-00-53',
-    'mimic2wdb/matched/s14584/s14584-2721-07-20-18-49')
+    'mimic2wdb/matched/s14584/s14584-2721-07-20-18-49',
+    'mimic2wdb/matched/s18413/s18413-3047-06-23-22-31')
     LIMIT 1''')
     wordo = (word[0],)
     if lenword > 1: wordo += (word[1],)
