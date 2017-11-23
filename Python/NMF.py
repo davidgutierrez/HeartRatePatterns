@@ -78,6 +78,8 @@ def plotError(title, pearson):
     plt.show()
 
 def find_best_NMF(patients, survived):
+    fig_size = [15, 15]
+    plt.rcParams["figure.figsize"] = fig_size
     result = []
     oldErr = None
     for value in range(2, 100):

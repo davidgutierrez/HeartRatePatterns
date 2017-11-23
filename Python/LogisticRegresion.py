@@ -66,5 +66,4 @@ def ajustLogisticRegression(model_train,objetive_train,model_test,objetive_test)
     acscore = acscore if acscore>acscorec else acscorec
     model = modelC if acscorec>acscoreb else model
     roc_auc = roc_auc_score(objetive_test, model.predict(model_test))
-    print("acurracy is {0:.4%}".format(acscore))
     return model,acscore,roc_auc
