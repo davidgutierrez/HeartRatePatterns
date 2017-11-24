@@ -9,7 +9,8 @@ import pandas as pd
 import numpy as np
 
 
-def __select_matrix(with_pearson, filter_words=None, dbname="mimic"):
+def __select_matrix(with_pearson, filter_words=None, len_words=None, 
+                    dbname="mimic"):
     """Selects the current state of the matrix.
     """
     conn = psycopg2.connect("dbname="+dbname)
@@ -22,6 +23,8 @@ def __select_matrix(with_pearson, filter_words=None, dbname="mimic"):
         ON m.word=w.word '''
     if filter_words!=None:
         select_stament = select_stament+''' WHERE m.word in %s '''
+    if len_words!=None:
+        select_stament = select_stament+''' WHERE length(m.word) in '''+str(len_words)
     if filter_words!=None:
         cur.execute(select_stament,(filter_words,))
     else:
@@ -33,14 +36,16 @@ def __select_matrix(with_pearson, filter_words=None, dbname="mimic"):
     conn.close()
     return select
 
-def convert_matrix(with_pearson=False, sumvals=True,filter_words=None):
+def convert_matrix(with_pearson=False, sumvals=True,filter_words=None, 
+                   len_words=None):
     """Selects the current state of the matrix.
     Keyword arguments:
     wave -- the original wave
     word -- the word that represents the wave
      """
     labels = ['subject_id', 'Word', 'Counting', 'isAlive']
-    dataframe = pd.DataFrame.from_records(__select_matrix(with_pearson,filter_words),
+    dataframe = pd.DataFrame.from_records(__select_matrix(with_pearson,
+                                                          filter_words,len_words),
                                           columns=labels)
     table = pd.pivot_table(dataframe, index=["subject_id", "isAlive"],
                            columns=["Word"], values=["Counting"],
