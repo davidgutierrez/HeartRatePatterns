@@ -67,6 +67,7 @@ def MyLogisticRegressionCV(solver, model_train, objetive_train, model_test,
     return logitmodel, acscore, best_val[0], bestC
 
 from sklearn.metrics import roc_auc_score
+from sklearn.metrics import confusion_matrix
 
 def ajustLogisticRegression(model_train, objetive_train, value_test,
                            objetive_test):
@@ -90,4 +91,6 @@ def ajustLogisticRegression(model_train, objetive_train, value_test,
     acscore = acscore if acscore > acscorec else acscorec
     model = modelC if acscorec > acscoreb else model
     roc_auc = roc_auc_score(objetive_test, model.predict_proba(value_test)[:, 1])
+    confu = confusion_matrix(objetive_test,model.predict(value_test))
+    print(confu)
     return {'model':model, 'accuracy':acscore, 'roc_auc':roc_auc}
